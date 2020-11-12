@@ -8,7 +8,13 @@ public:
     Point(vector<int> dims, string name) : name(name){
         this->dims = dims;
     }
-    
+
+    /*
+    returns:
+        1 -> if current point dominates other point
+        0 -> if no one dominates
+        -1 -> if other point dominates current point
+    */
     int dominates(Point& other) {
         int g = 0, l = 0, e = 0;
         int d = other.dims.size();
@@ -27,6 +33,7 @@ public:
     }
 };
 
+// Dataset
 vector<Point> D = {Point({10, 0, 0}, "Q1"), Point({1,7,1}, "Q2"), Point({2,3,3}, "Q3"), Point({7,0,0}, "Q4"), Point({1,5,0}, "Q5"), Point({0,0,4}, "Q7"), Point({0,4,1}, "Q6"), Point({1,1,2}, "Q8"), Point({0,1,3}, "Q9"), Point({1,0,3}, "Q10")};
 
 class Group {
@@ -41,6 +48,7 @@ public:
     Group() {}
 };
 
+// Returns the score of the given group 
 int getScore(Group G, vector<Point>& D) {
     map<string, bool> hmap;
     int score = 0;
@@ -55,13 +63,14 @@ int getScore(Group G, vector<Point>& D) {
     return score;
 }
 
-
+// compartor for Group class
 struct comp{ 
     bool operator()(const Group& curr, const Group& other) {
         return getScore(curr, D) > getScore(other, D);
     }
 };
 
+// Merge units, used in Unit+ algorithm
 Group mergeUnits(Group g1, Group g2) {
     for(auto p : g2.points) {
         g1.points.insert(p);
@@ -69,6 +78,7 @@ Group mergeUnits(Group g1, Group g2) {
     return g1;
 }
 
+// prunes the input using Unit+ algorithm
 vector<Point> inputPruning(vector<Point> D, int l) {
     int n = D.size();
     int m = n / l;
@@ -127,6 +137,7 @@ vector<Point> inputPruning(vector<Point> D, int l) {
     return D_pruned;
 } 
 
+// Returns the skyline(points which are dominated by any point in the dataset) of the dataset
 vector<Point> findSkyline(vector<Point>& D) {
     int n = D.size();
     if(n == 0) return {};
@@ -151,6 +162,7 @@ vector<Point> findSkyline(vector<Point>& D) {
     return skyline;
 }
 
+// removes the skyline points from the dataset and returns residual
 vector<Point> findResidual(vector<Point>& D, vector<Point>& skyline) {
     map<string, bool> hmap;
     for(auto s : skyline) hmap[s.name] = true;
@@ -164,7 +176,7 @@ vector<Point> findResidual(vector<Point>& D, vector<Point>& skyline) {
     return residual;
 }
 
-
+// generate skyline candidate groups, used in TKD_permutation
 void generateGroups(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& PQ, vector<Point> skyline, Group candidate) {
     if(l == 0) {
         return;
