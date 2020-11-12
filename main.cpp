@@ -227,7 +227,7 @@ void revive(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& P
 }
 
 vector<Group> TKD_permutation(vector<Point> D, int k, int l) {
-    auto prunedDataset = inputPruning(D, l);
+    D = inputPruning(D, l);
     auto skyline = findSkyline(D);
     auto residual = findResidual(D, skyline);
     set<Group, comp> candidate, bucket;
