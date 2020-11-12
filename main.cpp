@@ -1,7 +1,6 @@
 #include<bits/stdc++.h>
 using namespace std;
 
-
 class Point {
 public:
     string name;
@@ -11,20 +10,20 @@ public:
     }
     
     int dominates(Point& other) {
-        int a = 0, b = 0, c = 0;
+        int g = 0, l = 0, e = 0;
         int d = other.dims.size();
         for(int i = 0; i < d; i++) {
-            if(dims[i] < other.dims[i]) b++;
-            else if(dims[i] > other.dims[i]) a++; 
-            else c++;
+            if(dims[i] < other.dims[i]) l++;
+            else if(dims[i] > other.dims[i]) g++; 
+            else e++;
         }
-        if((a + c) == d) return 1;
-        else if((a + c) < d && (b + c) == d) return -1;
+        if(g >= 1 && (g + e) == d) return 1;
+        else if(l >= 1 && (l + e) == d) return -1;
         return 0;
     }
 
     bool operator<(const Point& other) const {
-        return 1;
+        return name.compare(other.name);
     }
 };
 
@@ -39,15 +38,16 @@ public:
         score = 0;
     }
 
+    Group() {}
 };
 
 int getScore(Group G, vector<Point>& D) {
-    map<Point, bool> hmap;
+    map<string, bool> hmap;
     int score = 0;
     for(auto q : G.points) {
         for(auto p : D) {
-            if(q.dominates(p) == 1 && !hmap[p]) {
-                hmap[p] = true;
+            if(q.dominates(p) == 1 && !hmap[p.name]) {
+                hmap[p.name] = true;
                 score++;
             }
         }
@@ -61,8 +61,70 @@ struct comp{
         return getScore(curr, D) > getScore(other, D);
     }
 };
-vector<Point> inputPruning(vector<Point> D) {
 
+Group mergeUnits(Group g1, Group g2) {
+    for(auto p : g2.points) {
+        g1.points.insert(p);
+    }
+    return g1;
+}
+
+vector<Point> inputPruning(vector<Point> D, int l) {
+    int n = D.size();
+    int m = n / l;
+    vector<Point> D_pruned;
+    vector<Group> units, intermediate, groups;
+    map<string, bool> hmap;
+
+    // form units of every point in the dataset
+    for(int i = 0; i < n; i++) {
+        auto p = D[i];
+        Group unit;
+        for(int j = 0; j < n; j++) {
+            auto q = D[j];
+            if(i == j) unit.points.insert(p);
+            else {
+                if(q.dominates(p) == 1) {
+                    unit.points.insert(q);
+                }
+            }
+        }
+        if(unit.points.size() <= l) units.push_back(unit);
+    }
+
+    intermediate = units;
+
+    for(int k = 0; k < m; k++) {
+        vector<Group> intermediate2;
+        for(int i = 0; i < intermediate.size(); i++) {
+            for(int j = 0; j < units.size(); j++) {
+                auto u1 = intermediate[i]; auto u2 = units[j];
+                if(k == 0 && j <= i) {
+                    continue;
+                }
+                auto unew = mergeUnits(u1, u2);
+                if(unew.points.size() == l) {
+                    groups.push_back(unew);
+                }
+                else if(unew.points.size() < l) {
+                    intermediate2.push_back(unew);   
+                }
+            }
+        }
+        intermediate = intermediate2;  
+    }
+
+    for(auto G : groups) {
+        for(auto p : G.points) {
+            hmap[p.name] = true;
+        }
+    }
+
+    for(auto p : D) {
+        if(hmap[p.name]) D_pruned.push_back(p);
+    }
+
+    return D_pruned;
 } 
 
 vector<Point> findSkyline(vector<Point>& D) {
@@ -90,12 +152,12 @@ vector<Point> findSkyline(vector<Point>& D) {
 }
 
 vector<Point> findResidual(vector<Point>& D, vector<Point>& skyline) {
-    map<Point, bool> hmap;
-    for(auto s : skyline) hmap[s] = true;
+    map<string, bool> hmap;
+    for(auto s : skyline) hmap[s.name] = true;
 
     vector<Point> residual;
     for(auto p : D) {
-        if(!hmap[p]) {
+        if(!hmap[p.name]) {
             residual.push_back(p);
         }
     }
@@ -153,6 +215,7 @@ void revive(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& P
 }
 
 vector<Group> TKD_permutation(vector<Point> D, int k, int l) {
+    auto prunedDataset = inputPruning(D, l);
     auto skyline = findSkyline(D);
     auto residual = findResidual(D, skyline);
     set<Group, comp> candidate, bucket;
@@ -163,8 +226,7 @@ vector<Group> TKD_permutation(vector<Point> D, int k, int l) {
 
     while(PQ.size()) {
         auto G = PQ.top(); PQ.pop();
-        // for(auto p : G.points) cout << p.name << " ";
-        // cout << "\n";
+
         if(G.points.size() < l) {
             candidate.insert(G);
         } else {
