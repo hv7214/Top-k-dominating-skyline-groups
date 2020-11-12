@@ -201,7 +201,7 @@ void revive(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& P
             bool dom = true;
             for(auto p : temp.points) {
                 int res = p.dominates(residual[i]);
-                if(res == 0 || res == -1) {
+                if(res == -1) {
                     dom = false;
                 }
             }
