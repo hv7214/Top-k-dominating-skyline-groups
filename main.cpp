@@ -263,8 +263,108 @@ vector<Group> TKD_permutation(vector<Point> D, int k, int l) {
     return topKSkylineGroups;
 }
 
+/* modify dimensions to improve prunning power of lemma 3 */
+void modify_dims(vector<Point> &D){
+    return;
+}
+
+bool comp_L1_norm(Point p1, Point p2){
+    int lp1 = 0, lp2 = 0;
+    for(auto d : p1.dims){
+        lp1 += d;
+    }
+    for(auto d : p2.dims){
+        lp2 += d;
+    }
+    return lp1 > lp2;
+}
+
+Point f_sum(Group grp){
+    if(grp.points.size()==0){
+        cout<<"f_sum error"<<endl;
+        exit(1);
+    }
+    vector<int> new_dim;
+    for(auto g : grp.points){
+        if(new_dim.empty()){
+            new_dim = g.dims;
+        } else {
+            for(int i=0;i<new_dim.size();i++){
+                new_dim[i] += g.dims[i];
+            }
+        }
+    }
+    Point Q(new_dim, "Q");
+    return Q;
+}
+
+vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
+    if(sky.size() == 0){
+        return grp;
+    }
+    vector<Group> skyline;
+    for(auto s : sky){
+        bool flag = 0;
+        for(auto g : grp){
+            auto p1 = f_sum(s);
+            auto p2 = f_sum(g);
+            if(p2.dominates(p1)==1){
+                flag = 1;
+                break;
+            }
+        }
+        if(!flag){
+            skyline.push_back(s);
+        }
+    }
+    for(auto g : grp){
+        bool flag = 0;
+        for(auto s : sky){
+            auto p1 = f_sum(s);
+            auto p2 = f_sum(g);
+            if(p1.dominates(p2)==1){
+                flag = 1;
+                break;
+            }
+        }
+        if(!flag){
+            skyline.push_back(g);
+        }
+    }
+    return skyline;
+}
+
+vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
+    D = inputPruning(D, l);
+    modify_dims(D);
+    sort(D.begin(), D.end(), comp_L1_norm);
+    priority_queue<Group, vector<Group>, comp> PQ;
+    vector<Group> Sky[D.size() + 1][l + 1];
+
+    for(int j = 1;j<=D.size();j++){
+        for(int i = min(j,l); i>=1;i--){
+            if(i==1){
+                Group g;
+                g.points.insert(D[j-1]);
+                vector<Group> dj;
+                dj.push_back(g);
+                Sky[j][1] = skyline_groups(Sky[j-1][1], dj);
+            } else {
+                vector<Group> temp = Sky[j-1][i-1];
+                for(int k=0;k<temp.size();k++){
+                    temp[k].points.insert(D[j-1]);
+                }
+                Sky[j][i] = skyline_groups(Sky[j-1][i], temp);
+            }
+        }
+    }
+    return Sky[D.size()][l];
+    // return Sky[4][2];
+}
+
 int main() {
-    auto topKSkylineGroups = TKD_permutation(D, 4, 3);
+    // auto topKSkylineGroups = TKD_permutation(D, 4, 3);
+    auto topKSkylineGroups = TKD_SUM(D, 4, 2);
 
     for(auto g : topKSkylineGroups) {
         for(auto p : g.points) {
