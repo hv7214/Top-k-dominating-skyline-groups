@@ -340,6 +340,7 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
     sort(D.begin(), D.end(), comp_L1_norm);
     priority_queue<Group, vector<Group>, comp> PQ;
     vector<Group> Sky[D.size() + 1][l + 1];
+    vector<Group> topKSkylineGroups;
 
     for(int j = 1;j<=D.size();j++){
         for(int i = min(j,l); i>=1;i--){
@@ -358,7 +359,21 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
             }
         }
     }
-    return Sky[D.size()][l];
+    for(auto g : Sky[D.size()][l]){
+        if(PQ.size() < k){
+            PQ.push(g);
+        } else {
+            if(getScore(g, D) > getScore(PQ.top(), D)){
+                PQ.pop();
+                PQ.push(g);
+            }
+        }
+    }
+    while(PQ.size()) {
+        topKSkylineGroups.push_back(PQ.top()); PQ.pop();
+    }
+
+    return topKSkylineGroups;
     // return Sky[4][2];
 }
 
