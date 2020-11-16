@@ -45,7 +45,23 @@ public:
         score = 0;
     }
 
-    Group() {}
+    Group() {
+        points = {};
+    }
+
+    bool operator==(const Group& other) const {
+        if(other.points.size() != points.size()) return false;
+        map<string, bool> hmap;
+        
+        for(auto p : points) {
+            hmap[p.name] = true;
+        }
+        for(auto p : other.points) {
+            if(hmap[p.name] == false) return false;
+        }
+        
+        return true; 
+    }
 };
 
 // Returns the score of the given group 
@@ -102,29 +118,7 @@ vector<Point> inputPruning(vector<Point> D, int l) {
         if(unit.points.size() <= l) units.push_back(unit);
     }
 
-    intermediate = units;
-
-    for(int k = 0; k < m; k++) {
-        vector<Group> intermediate2;
-        for(int i = 0; i < intermediate.size(); i++) {
-            for(int j = 0; j < units.size(); j++) {
-                auto u1 = intermediate[i]; auto u2 = units[j];
-                if(k == 0 && j <= i) {
-                    continue;
-                }
-                auto unew = mergeUnits(u1, u2);
-                if(unew.points.size() == l) {
-                    groups.push_back(unew);
-                }
-                else if(unew.points.size() < l) {
-                    intermediate2.push_back(unew);   
-                }
-            }
-        }
-        intermediate = intermediate2;  
-    }
-
-    for(auto G : groups) {
+    for(auto G : units) {
         for(auto p : G.points) {
             hmap[p.name] = true;
         }
@@ -227,22 +221,28 @@ void revive(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& P
 }
 
 vector<Group> TKD_permutation(vector<Point> D, int k, int l) {
+    // prunes the dataset using unit algorithm
     D = inputPruning(D, l);
+    // skyline points are those which are not dominated by any other point in dataset
     auto skyline = findSkyline(D);
+    // subtract skyline from dataset(D - skyline)
     auto residual = findResidual(D, skyline);
-    set<Group, comp> candidate, bucket;
+    // helper data-structures
+    vector<Group> candidate, bucket;
+    // priority queue of size k which sorts groups on the basis of ascending scores 
     priority_queue<Group, vector<Group>, comp> PQ;
+    // stores top-k dominating skyline groups
     vector<Group> topKSkylineGroups;
-
+    // form candidate groups which can be in top-k dominating skyline groups
     generateGroups(0, l, k, PQ, skyline, Group(set<Point>()));
 
     while(PQ.size()) {
         auto G = PQ.top(); PQ.pop();
 
         if(G.points.size() < l) {
-            candidate.insert(G);
+            candidate.push_back(G);
         } else {
-            bucket.insert(G);
+            bucket.push_back(G);
         }
     }
 
@@ -303,32 +303,22 @@ vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
         return grp;
     }
     vector<Group> skyline;
-    for(auto s : sky){
-        bool flag = 0;
-        for(auto g : grp){
-            auto p1 = f_sum(s);
-            auto p2 = f_sum(g);
-            if(p2.dominates(p1)==1){
-                flag = 1;
+
+    for(auto G : grp) {
+        sky.push_back(G);
+    }    
+    for(auto G1 : sky) {
+        bool flag = true;
+        for(auto G2 : sky) {
+            auto p1 = f_sum(G1);
+            auto p2 = f_sum(G2);
+            if(p2.dominates(p1) == 1) {
+                flag = false;
                 break;
-            }
+            }   
         }
-        if(!flag){
-            skyline.push_back(s);
-        }
-    }
-    for(auto g : grp){
-        bool flag = 0;
-        for(auto s : sky){
-            auto p1 = f_sum(s);
-            auto p2 = f_sum(g);
-            if(p1.dominates(p2)==1){
-                flag = 1;
-                break;
-            }
-        }
-        if(!flag){
-            skyline.push_back(g);
+        if(flag) {
+            skyline.push_back(G1);
         }
     }
     return skyline;
@@ -345,15 +335,14 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
     for(int j = 1;j<=D.size();j++){
         for(int i = min(j,l); i>=1;i--){
             if(i==1){
-                Group g;
-                g.points.insert(D[j-1]);
-                vector<Group> dj;
-                dj.push_back(g);
+                Group g; g.points.insert(D[j-1]);
+                vector<Group> dj; dj.push_back(g);
                 Sky[j][1] = skyline_groups(Sky[j-1][1], dj);
             } else {
-                vector<Group> temp = Sky[j-1][i-1];
-                for(int k=0;k<temp.size();k++){
-                    temp[k].points.insert(D[j-1]);
+                vector<Group> temp;
+                for(auto G : Sky[j-1][i-1]) {
+                    G.points.insert(D[j-1]);
+                    temp.push_back(G);
                 }
                 Sky[j][i] = skyline_groups(Sky[j-1][i], temp);
             }
@@ -374,12 +363,186 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
     }
 
     return topKSkylineGroups;
-    // return Sky[4][2];
+}
+
+void findAllGroups(int pos, vector<Point> D, int groupSize, vector<Group>& groups, Group currGroup) {
+    if(groupSize <= 0) {
+        groups.push_back(currGroup);
+        return;
+    }
+
+    for(int i = pos; i < D.size(); i++) {
+        // include the current point
+        auto include = currGroup; include.points.insert(D[i]);
+        findAllGroups(pos+1, D, groupSize-1, groups, include);
+        // exclude the current point
+        findAllGroups(pos+1, D, groupSize, groups, currGroup);
+    }
+}
+
+vector<int> findSkylineVector(const Group& G, int l) {
+    vector<int> skylineVector;
+
+    for(int i = 0; i < l; i++) {
+        int p_max = INT_MIN;
+        for(auto p : G.points) {
+            p_max = max(p_max, p.dims[i]);
+        }
+        skylineVector.push_back(p_max);
+    }
+    return skylineVector;
+}
+
+bool sameSkylineVector(const Group& G1, const Group& G2, int d) {
+    auto skylineVector1 = findSkylineVector(G1, d);
+    auto skylineVector2 = findSkylineVector(G2, d);
+
+    for(int i = 0; i < d; i++) {
+        if(skylineVector1[i] != skylineVector2[i]) return false;
+    }
+    return true;
+}
+
+void getAllCombinations(vector<Group>& allCombinations, vector<vector<Point>> V, int pos, Group currGroup) {
+    if(pos >= V.size()) {
+        allCombinations.push_back(currGroup);
+        return;
+    }
+    for(int i = 0; i < V[pos].size(); i++) {
+        auto newGroup = currGroup; newGroup.points.insert(V[pos][i]);
+        getAllCombinations(allCombinations, V, pos+1, newGroup);
+    }
+}
+
+bool checkIfNotPresent(priority_queue<Group, vector<Group>, comp> PQ, Group G) {
+    while(PQ.size()) {
+        if(G == PQ.top()) return false;
+        PQ.pop();
+    }
+    return true;
+}
+
+void constructGroups(Group G, int l, int k, priority_queue<Group, vector<Group>, comp>& PQ, vector<Point> D) {
+    auto d = (*begin(G.points)).dims.size();
+    auto v = findSkylineVector(G, d);   
+    vector<vector<Point>> V(d);
+    vector<Group> allCombinations;
+    vector<Group> groups;
+
+    for(int i = 0; i < d; i++) {
+        for(auto p : D) {
+            if(p.dims[i] == v[i]) {
+                V[i].push_back(p);
+            }
+        }
+    } 
+
+    getAllCombinations(allCombinations, V, 0, Group());
+
+    for(auto Gc : allCombinations) {
+        if(Gc.points.size() <= l) {
+            // find D - Gc
+            auto temp = vector<Point>(begin(Gc.points), end(Gc.points));
+            auto residual = findResidual(D, temp);
+            // find all groups of size |l - Gc| from (D - Gc.points) set points
+            findAllGroups(0, residual, l - Gc.points.size(), groups, Group());
+            
+            for(auto G2 : groups) {
+                auto mergedGroup = mergeUnits(G2, Gc);
+
+                if(PQ.size() < k && checkIfNotPresent(PQ, mergedGroup)) {
+                    PQ.push(mergedGroup);
+                }
+                else if(getScore(mergedGroup, D) > getScore(PQ.top(), D) && checkIfNotPresent(PQ, mergedGroup)) {
+                    PQ.pop();
+                    PQ.push(mergedGroup);
+                }
+            }
+        }
+    }
+}
+
+vector<Group> TKD_MAX(vector<Point> D, int k, int l) {
+	auto skyline = findSkyline(D);
+    auto residual = findResidual(D, skyline);
+    vector<Group> queue;
+	vector<Group> topKSkylineGroups;
+    vector<Group> groupCombinations;
+	Group G(set<Point>(skyline.begin(), skyline.end()));
+    vector<vector<vector<Group>>> Sky(skyline.size()+1, vector<vector<Group>>(l+1, vector<Group>()));
+
+    // priority queue of size k which sorts groups on the basis of ascending scores 
+    priority_queue<Group, vector<Group>, comp> PQ;
+
+	if(G.points.size() <= l) {
+        // find all groups of size l - |G| from residual points
+        // NP-hard problem (Set-cover problem)
+        findAllGroups(0, residual, l - G.points.size(), groupCombinations, Group());
+        
+        for(auto G1 : groupCombinations) {
+            auto mergedGroup = mergeUnits(G, G1);
+            topKSkylineGroups.push_back(mergedGroup);
+            if(topKSkylineGroups.size() == k) {
+                return topKSkylineGroups;
+            }
+        }
+	}
+
+    for(int j = 1; j <= skyline.size(); j++) {
+        for(int i = 1; i <= min(j, l); i++) {
+            if(i == 1) {
+                Group g; g.points.insert(skyline[j-1]);
+                vector<Group> tempGroup; tempGroup.push_back(g);
+                Sky[j][i] = skyline_groups(Sky[j-1][i], tempGroup);
+            } else {
+                vector<Group> temp;
+                for(auto G : Sky[j-1][i-1]) {
+                    G.points.insert(skyline[j-1]);
+                    temp.push_back(G);
+                }
+                Sky[j][i] = skyline_groups(Sky[j-1][i], temp);
+            }
+        }
+    }
+	
+    // groups sorted in descending order
+    auto groups_set = Sky[skyline.size()][l];
+
+    // remove group from the groups set having same skyline/aggregate vector and less score
+    for(auto Gi : groups_set) {
+        bool takeFlag = true;
+        for(auto Gj : groups_set) {
+            if(Gi == Gj) continue;
+            int score_Gi = getScore(Gi, D), score_Gj = getScore(Gj, D);
+            if(score_Gi < score_Gj && sameSkylineVector(Gi, Gj, D[0].dims.size())) {
+                takeFlag = false;
+                break;
+            }
+        }
+        if(takeFlag) {
+            queue.push_back(Gi);
+        }
+    }
+
+    for(auto G: queue) {
+        if(PQ.size() < k || getScore(G, D) > getScore(PQ.top(), D)) {
+            constructGroups(G, l, k, PQ, D);
+        } else {
+            break;
+        }
+    }
+
+    while(PQ.size()) {
+        topKSkylineGroups.push_back(PQ.top());
+        PQ.pop();
+    }
+
+    return topKSkylineGroups;
 }
 
 int main() {
     // auto topKSkylineGroups = TKD_permutation(D, 4, 3);
-    auto topKSkylineGroups = TKD_SUM(D, 4, 2);
+    auto topKSkylineGroups = TKD_MAX(D, 4, 2);
 
     for(auto g : topKSkylineGroups) {
         for(auto p : g.points) {
