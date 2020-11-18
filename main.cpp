@@ -263,6 +263,7 @@ void modify_dims(vector<Point> &D){
     return;
 }
 
+// comparater for sorting points in descending order as per L1 norm
 bool comp_L1_norm(Point p1, Point p2){
     int lp1 = 0, lp2 = 0;
     for(auto d : p1.dims){
@@ -274,6 +275,7 @@ bool comp_L1_norm(Point p1, Point p2){
     return lp1 > lp2;
 }
 
+// aggregate function for calculating representative point of a group for TKD_SUM 
 Point f_sum(Group grp){
     if(grp.points.size()==0){
         cout<<"f_sum error"<<endl;
@@ -293,6 +295,7 @@ Point f_sum(Group grp){
     return Q;
 }
 
+// eliminates non skyline groups before storing in Sky(i,j)
 vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
     if(sky.size() == 0){
         return grp;
@@ -320,11 +323,17 @@ vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
 }
 
 vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
+    // prunes dataset using unit algorithm
     D = inputPruning(D, l);
+    // used normalize a dimension if its value is considerably large than other dimensions
     modify_dims(D);
+    // sorts points in D in the descending order of L1 norm
     sort(D.begin(), D.end(), comp_L1_norm);
+    // priority queue of size k which sorts groups on the basis of ascending scores
     priority_queue<Group, vector<Group>, comp> PQ;
+    // stores Sky(i,j) i.e. set of i point groups with regard to first j points in D
     vector<Group> Sky[D.size() + 1][l + 1];
+    // stores top-k dominating skyline groups
     vector<Group> topKSkylineGroups;
 
     for(int j = 1;j<=D.size();j++){
@@ -343,6 +352,7 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
             }
         }
     }
+    // finding top k groups as per score
     for(auto g : Sky[D.size()][l]){
         if(PQ.size() < k){
             PQ.push(g);
@@ -535,7 +545,7 @@ vector<Group> TKD_MAX(vector<Point> D, int k, int l) {
     return topKSkylineGroups;
 }
 
-
+// aggregate function for calculating representative point of a group for TKD_MIN
 Point f_min(Group grp){
     if(grp.points.size()==0){
         cout<<"f_min error"<<endl;
@@ -555,6 +565,7 @@ Point f_min(Group grp){
     return Q;
 }
 
+// eliminates non skyline groups before storing in Sky(i,j)
 vector<Group> skyline_groups_min(vector<Group> sky, vector<Group> temp){
     vector<Group> grp;
     for(auto g1 : temp){
@@ -606,6 +617,7 @@ vector<Group> skyline_groups_min(vector<Group> sky, vector<Group> temp){
     return skyline;
 }
 
+// computes Theta for a group i.e. set of points which are equal or dominating over representative point of that group
 vector<Point> compute_theta_v(Group grp, vector<Point> D){
     Point p = f_min(grp);
     vector<Point> theta;
@@ -618,6 +630,8 @@ vector<Point> compute_theta_v(Group grp, vector<Point> D){
     }
     return theta;
 }
+
+// generates l point groups from theta of a group 
 void generate_l_group(int i,vector<Point> &theta,int l,vector<Group> &grp,Group curgrp){
 	if(l==0&&i==theta.size()){
 		grp.push_back(curgrp);
@@ -631,6 +645,7 @@ void generate_l_group(int i,vector<Point> &theta,int l,vector<Group> &grp,Group 
 	generate_l_group(i+1,theta,l-1, grp,curgrp);
 }
 
+// checks whether 2 groups are equal or not
 bool compare_group(Group grp1, Group grp2){
     if(grp1.points.size() != grp2.points.size()){
         return 0;
@@ -650,9 +665,13 @@ bool compare_group(Group grp1, Group grp2){
 }
 
 vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
+    // prunes dataset using unit algorithm
     D = inputPruning(D, l);
+    // priority queue of size k which sorts groups on the basis of ascending scores
     priority_queue<Group, vector<Group>, comp> PQ;
+    // stores Sky(i,j) i.e. set of i point groups with regard to first j points in D
     vector<Group> Sky[D.size() + 1][l + 1];
+    // stores top-k dominating skyline groups
     vector<Group> topKSkylineGroups;
 
     for(int j = 1;j<=D.size();j++){
@@ -672,6 +691,8 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
             }
         }
     }
+
+    // Remove duplicate skyline vectors in Sky(l, |D|)
     map<vector<int>,int> mp;
     vector<Group> skyl;
     for(auto g: Sky[D.size()][l]){
@@ -682,16 +703,19 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
             skyl.push_back(g);
         }
     }
+
     for(auto g : skyl){
         vector<Point> theta = compute_theta_v(g, D);
         Group theta_g;
         for(auto v : theta) theta_g.points.insert(v);
             if(!PQ.empty()){
                 if(PQ.size() < k || getScore(theta_g, D) > getScore(PQ.top(), D)){
+                    //stores l point groups over theta
                     vector<Group> l_grp;
                     Group curgrp;
                     generate_l_group(0, theta, l, l_grp, curgrp);
                     for(auto g: l_grp){
+                        // makes sure groups already present in PQ dont get pushed again
                         int tm=0;
                         vector<Group> rmvec;
                         
@@ -715,10 +739,12 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
                     }
                 }
             } else {
+                //stores l point groups over theta
                 vector<Group> l_grp;
                 Group curgrp;
                 generate_l_group(0, theta, l, l_grp, curgrp);
                 for(auto g: l_grp){
+                        // makes sure groups already present in PQ dont get pushed again
                         int tm=0;
                         vector<Group> rmvec;
                         while(!PQ.empty()){
