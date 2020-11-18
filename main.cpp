@@ -123,13 +123,16 @@ vector<Point> inputPruning(vector<Point> D, int l) {
     return D_pruned;
 } 
 
-// Returns the skyline(points which are dominated by any point in the dataset) of the dataset
+// Returns the skyline(points which are dominated by any 
+// point in the dataset) of the dataset
 vector<Point> findSkyline(vector<Point>& D) {
     int n = D.size();
     if(n == 0) return {};
 
     vector<Point> skyline = {D[0]};
     for(int i = 1; i < n; i++) {
+        // indicate if current point is dominated by
+        // any other point in dataset
         bool flag = true;
         for(int j = 0; j < skyline.size(); j++) {
             int res = skyline[j].dominates(D[i]);
@@ -776,17 +779,37 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
 }
 
 int main() {
-    // auto topKSkylineGroups = TKD_permutation(D, 4, 3);
-    auto topKSkylineGroups = TKD_MAX(D, 4, 2);
-    // auto topKSkylineGroups = TKD_SUM(D, 4, 2);
-    // auto topKSkylineGroups = TKD_MIN(D, 7, 2);
+    cout << "Choose the function under which you want the top-k dominating skyline groups: \n";
+    cout << "1. Permutation\n";
+    cout << "2. SUM\n";
+    cout << "3. MAX\n";
+    cout << "4. MIN\n";
+
+    vector<Group> topKSkylineGroups;
+    int option, l, k; 
+    
+    cin >> option;
+    cout << "Enter k and l\n";
+    cin >> k >> l;
+
+
+    if(option == 1) {
+        topKSkylineGroups = TKD_permutation(D, k, l);
+    } else if(option == 2) { 
+        topKSkylineGroups = TKD_MAX(D, k, l);
+    } else if(option == 2) {
+        topKSkylineGroups = TKD_SUM(D, k, l);
+    } else {
+        topKSkylineGroups = TKD_MIN(D, k, l);
+    }
 
     for(auto g : topKSkylineGroups) {
         for(auto p : g.points) {
-            cout << p.name << ": ";
-            for(auto x : p.dims) cout << x << ",";
-            cout << " ";
+            cout << p.name << "(";
+            for(int i = 0; i < p.dims.size()-1; i++) cout << p.dims[i] << ",";
+            cout << p.dims[p.dims.size()-1];
+            cout << ") ,";
         }
-        cout << getScore(g, D) << "\n";
+        cout << "Score: " << getScore(g, D) << "\n";
     }
 }
