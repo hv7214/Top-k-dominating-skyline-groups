@@ -540,9 +540,225 @@ vector<Group> TKD_MAX(vector<Point> D, int k, int l) {
     return topKSkylineGroups;
 }
 
+
+Point f_min(Group grp){
+    if(grp.points.size()==0){
+        cout<<"f_min error"<<endl;
+        exit(1);
+    }
+    vector<int> new_dim;
+    for(auto g : grp.points){
+        if(new_dim.empty()){
+            new_dim = g.dims;
+        } else {
+            for(int i=0;i<new_dim.size();i++){
+                new_dim[i] = min(new_dim[i], g.dims[i]);
+            }
+        }
+    }
+    Point Q(new_dim, "Q");
+    return Q;
+}
+
+vector<Group> skyline_groups_min(vector<Group> sky, vector<Group> temp){
+    vector<Group> grp;
+    for(auto g1 : temp){
+        bool flag = 0;
+        Point p1 = f_min(g1);
+        for(auto g2 : temp){
+            Point p2 = f_min(g2);
+            if(p2.dominates(p1)==1){
+                flag = 1;
+                break;
+            }
+        }
+        if(!flag){
+            grp.push_back(g1);
+        }
+    }
+    if(sky.size() == 0){
+        return grp;
+    }
+    vector<Group> skyline;
+    for(auto s : sky){
+        bool flag = 0;
+        for(auto g : grp){
+            auto p1 = f_min(s);
+            auto p2 = f_min(g);
+            if(p2.dominates(p1)==1){
+                flag = 1;
+                break;
+            }
+        }
+        if(!flag){
+            skyline.push_back(s);
+        }
+    }
+    for(auto g : grp){
+        bool flag = 0;
+        for(auto s : sky){
+            auto p1 = f_min(s);
+            auto p2 = f_min(g);
+            if(p1.dominates(p2)==1){
+                flag = 1;
+                break;
+            }
+        }
+        if(!flag){
+            skyline.push_back(g);
+        }
+    }
+    return skyline;
+}
+
+vector<Point> compute_theta_v(Group grp, vector<Point> D){
+    Point p = f_min(grp);
+    vector<Point> theta;
+    for(auto p2 : D){
+        if(p2.dominates(p) == 1){
+            theta.push_back(p2);
+        } else if(p2.dims == p.dims){
+            theta.push_back(p2);
+        }
+    }
+    return theta;
+}
+void generate_l_group(int i,vector<Point> &theta,int l,vector<Group> &grp,Group curgrp){
+	if(l==0&&i==theta.size()){
+		grp.push_back(curgrp);
+		return;
+	}
+	if(l!=0&&i==theta.size()){
+		return;
+	}
+	generate_l_group(i+1,theta,l,grp,curgrp);
+	curgrp.points.insert(theta[i]);
+	generate_l_group(i+1,theta,l-1, grp,curgrp);
+}
+
+bool compare_group(Group grp1, Group grp2){
+    if(grp1.points.size() != grp2.points.size()){
+        return 0;
+    }
+    vector<Point> v1, v2;
+    for(auto g : grp1.points) v1.push_back(g);
+    for(auto g : grp2.points) v2.push_back(g);
+
+    bool flag = 0;
+    for(int i=0;i<v1.size();i++){
+        if(v1[i].dims != v2[i].dims){
+            flag = 1;
+        }
+    }
+    if(flag) return 0;
+    return 1;
+}
+
+vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
+    D = inputPruning(D, l);
+    priority_queue<Group, vector<Group>, comp> PQ;
+    vector<Group> Sky[D.size() + 1][l + 1];
+    vector<Group> topKSkylineGroups;
+
+    for(int j = 1;j<=D.size();j++){
+        for(int i = min(j,l); i>=1;i--){
+            if(i==1){
+                Group g;
+                g.points.insert(D[j-1]);
+                vector<Group> dj;
+                dj.push_back(g);
+                Sky[j][1] = skyline_groups_min(Sky[j-1][1], dj);
+            } else {
+                vector<Group> temp = Sky[j-1][i-1];
+                for(int k=0;k<temp.size();k++){
+                    temp[k].points.insert(D[j-1]);
+                }
+                Sky[j][i] = skyline_groups_min(Sky[j-1][i], temp);
+            }
+        }
+    }
+    map<vector<int>,int> mp;
+    vector<Group> skyl;
+    for(auto g: Sky[D.size()][l]){
+        Point p = f_min(g);
+        vector<int> dims=p.dims;
+        if(mp[dims]==0){
+            mp[dims] = 1;
+            skyl.push_back(g);
+        }
+    }
+    for(auto g : skyl){
+        vector<Point> theta = compute_theta_v(g, D);
+        Group theta_g;
+        for(auto v : theta) theta_g.points.insert(v);
+            if(!PQ.empty()){
+                if(PQ.size() < k || getScore(theta_g, D) > getScore(PQ.top(), D)){
+                    vector<Group> l_grp;
+                    Group curgrp;
+                    generate_l_group(0, theta, l, l_grp, curgrp);
+                    for(auto g: l_grp){
+                        int tm=0;
+                        vector<Group> rmvec;
+                        
+                        while(!PQ.empty()){
+                            if(compare_group(g, PQ.top())){
+                                tm=1;
+                            }
+                            rmvec.push_back(PQ.top());
+                            PQ.pop();
+                        }
+                        for(auto x:rmvec){
+                            PQ.push(x);
+                        }
+                        if(PQ.size() < k && tm==0){
+                            PQ.push(g);
+                        }
+                        else if(getScore(g,D)>getScore(PQ.top(),D)&&tm==0){
+                            PQ.pop();
+                            PQ.push(g);
+                        }
+                    }
+                }
+            } else {
+                vector<Group> l_grp;
+                Group curgrp;
+                generate_l_group(0, theta, l, l_grp, curgrp);
+                for(auto g: l_grp){
+                        int tm=0;
+                        vector<Group> rmvec;
+                        while(!PQ.empty()){
+                            if(compare_group(g, PQ.top())){
+                                tm=1;
+                            }
+                            rmvec.push_back(PQ.top());
+                            PQ.pop();
+                        }
+                        for(auto x:rmvec){
+                            PQ.push(x);
+                        }
+                    if(PQ.size() < k && tm==0){
+                        PQ.push(g);
+                    }
+                    else if(getScore(g,D)>getScore(PQ.top(),D)&&tm==0){
+                        PQ.pop();
+                        PQ.push(g);
+                    }
+                }
+            }
+        
+    }
+    while(PQ.size()) {
+        topKSkylineGroups.push_back(PQ.top()); PQ.pop();
+    }
+    reverse(topKSkylineGroups.begin(),topKSkylineGroups.end());
+    return topKSkylineGroups;
+}
+
 int main() {
     // auto topKSkylineGroups = TKD_permutation(D, 4, 3);
     auto topKSkylineGroups = TKD_MAX(D, 4, 2);
+    // auto topKSkylineGroups = TKD_SUM(D, 4, 2);
+    // auto topKSkylineGroups = TKD_MIN(D, 7, 2);
 
     for(auto g : topKSkylineGroups) {
         for(auto p : g.points) {
