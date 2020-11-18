@@ -99,7 +99,7 @@ vector<Point> inputPruning(vector<Point> D, int l) {
     int n = D.size();
     int m = n / l;
     vector<Point> D_pruned;
-    vector<Group> units, intermediate, groups;
+    vector<Group> units, groups;
     map<string, bool> hmap;
 
     // form units of every point in the dataset
@@ -115,17 +115,9 @@ vector<Point> inputPruning(vector<Point> D, int l) {
                 }
             }
         }
-        if(unit.points.size() <= l) units.push_back(unit);
-    }
-
-    for(auto G : units) {
-        for(auto p : G.points) {
-            hmap[p.name] = true;
-        }
-    }
-
-    for(auto p : D) {
-        if(hmap[p.name]) D_pruned.push_back(p);
+        // if a point is dominated by more than l - 1 points,
+        // then the point will not be in the dataset
+        if(unit.points.size() <= l) D_pruned.push_back(p);
     }
 
     return D_pruned;
@@ -171,7 +163,9 @@ vector<Point> findResidual(vector<Point>& D, vector<Point>& skyline) {
 }
 
 // generate skyline candidate groups, used in TKD_permutation
-void generateGroups(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& PQ, vector<Point> skyline, Group candidate) {
+void generateGroups(int pos, int l, int k, 
+            priority_queue<Group, vector<Group>, comp>& PQ, 
+            vector<Point> skyline, Group candidate) {
     if(l == 0) {
         return;
     }
@@ -191,7 +185,8 @@ void generateGroups(int pos, int l, int k, priority_queue<Group, vector<Group>, 
     }
 }
 
-void revive(int pos, int l, int k, priority_queue<Group, vector<Group>, comp>& PQ, vector<Point> residual, Group candidate) {
+void revive(int pos, int l, int k, priority_queue<Group, 
+            vector<Group>, comp>& PQ, vector<Point> residual, Group candidate) {
     if(l == 0) {
         if(PQ.size() < k) {
             PQ.push(candidate);
