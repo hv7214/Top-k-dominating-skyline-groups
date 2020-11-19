@@ -94,7 +94,7 @@ Group mergeUnits(Group g1, Group g2) {
     return g1;
 }
 
-// prunes the input using Unit+ algorithm
+// prunes the input using Unit algorithm
 vector<Point> inputPruning(vector<Point> D, int l) {
     int n = D.size();
     int m = n / l;
@@ -299,7 +299,7 @@ Point f_sum(Group grp){
 }
 
 // eliminates non skyline groups before storing in Sky(i,j)
-vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
+vector<Group>   skyline_groups(vector<Group> sky, vector<Group> grp){
     if(sky.size() == 0){
         return grp;
     }
@@ -328,13 +328,15 @@ vector<Group> skyline_groups(vector<Group> sky, vector<Group> grp){
 vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
     // prunes dataset using unit algorithm
     D = inputPruning(D, l);
-    // used normalize a dimension if its value is considerably large than other dimensions
+    // used normalize a dimension if its value is 
+    // considerably large than other dimensions
     modify_dims(D);
     // sorts points in D in the descending order of L1 norm
     sort(D.begin(), D.end(), comp_L1_norm);
     // priority queue of size k which sorts groups on the basis of ascending scores
     priority_queue<Group, vector<Group>, comp> PQ;
-    // stores Sky(i,j) i.e. set of i point groups with regard to first j points in D
+    // stores Sky(i,j) i.e. set of i point 
+    // groups with regard to first j points in D
     vector<Group> Sky[D.size() + 1][l + 1];
     // stores top-k dominating skyline groups
     vector<Group> topKSkylineGroups;
@@ -373,6 +375,7 @@ vector<Group> TKD_SUM(vector<Point> D, int k, int l) {
     return topKSkylineGroups;
 }
 
+// NP-hard, recursive solution
 void findAllGroups(int pos, vector<Point> D, int groupSize, vector<Group>& groups, Group currGroup) {
     if(groupSize <= 0) {
         groups.push_back(currGroup);
@@ -411,6 +414,7 @@ bool sameSkylineVector(const Group& G1, const Group& G2, int d) {
     return true;
 }
 
+// recursive solution, NP-hard problem
 void getAllCombinations(vector<Group>& allCombinations, vector<vector<Point>> V, int pos, Group currGroup) {
     if(pos >= V.size()) {
         allCombinations.push_back(currGroup);
@@ -431,8 +435,10 @@ bool checkIfNotPresent(priority_queue<Group, vector<Group>, comp> PQ, Group G) {
 }
 
 void constructGroups(Group G, int l, int k, priority_queue<Group, vector<Group>, comp>& PQ, vector<Point> D) {
+    // dimensions of a point
     auto d = (*begin(G.points)).dims.size();
-    auto v = findSkylineVector(G, d);   
+    // get the representative point v for the Group G
+    auto v = findSkylineVector(G, d);
     vector<vector<Point>> V(d);
     vector<Group> allCombinations;
     vector<Group> groups;
@@ -445,6 +451,7 @@ void constructGroups(Group G, int l, int k, priority_queue<Group, vector<Group>,
         }
     } 
 
+    // get all groups that can be formed from V
     getAllCombinations(allCombinations, V, 0, Group());
 
     for(auto Gc : allCombinations) {
@@ -741,7 +748,8 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
                         }
                     }
                 }
-            } else {
+            } 
+            else {
                 //stores l point groups over theta
                 vector<Group> l_grp;
                 Group curgrp;
@@ -771,10 +779,13 @@ vector<Group> TKD_MIN(vector<Point> D, int k, int l) {
             }
         
     }
+    
     while(PQ.size()) {
         topKSkylineGroups.push_back(PQ.top()); PQ.pop();
     }
+
     reverse(topKSkylineGroups.begin(),topKSkylineGroups.end());
+    
     return topKSkylineGroups;
 }
 
@@ -796,9 +807,9 @@ int main() {
     if(option == 1) {
         topKSkylineGroups = TKD_permutation(D, k, l);
     } else if(option == 2) { 
-        topKSkylineGroups = TKD_MAX(D, k, l);
-    } else if(option == 2) {
         topKSkylineGroups = TKD_SUM(D, k, l);
+    } else if(option == 3) {
+        topKSkylineGroups = TKD_MAX(D, k, l);
     } else {
         topKSkylineGroups = TKD_MIN(D, k, l);
     }
